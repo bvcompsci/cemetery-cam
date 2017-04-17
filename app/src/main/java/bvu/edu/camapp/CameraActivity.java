@@ -6,7 +6,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
-import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
@@ -16,6 +16,7 @@ import android.os.Environment;
 import android.provider.MediaStore;
 import android.provider.Settings;
 import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.FileProvider;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
@@ -25,11 +26,14 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import java.io.ByteArrayOutputStream;
+import com.squareup.picasso.Picasso;
+import com.squareup.picasso.Target;
+
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.UUID;
 
 import okhttp3.MediaType;
 import okhttp3.MultipartBody;
@@ -47,6 +51,7 @@ public class CameraActivity extends AppCompatActivity implements LocationListene
     private Location lastKnownLocation;
     private String[] personInfo;
     private String person_img_name;
+    private Uri mImageUri;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -58,8 +63,12 @@ public class CameraActivity extends AppCompatActivity implements LocationListene
 
         // LOCATION GPS SERVICE
         locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            return;
+
+        if(ActivityCompat.checkSelfPermission(this,Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
+                ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_COARSE_LOCATION,
+            Manifest.permission.ACCESS_FINE_LOCATION}, 0);
+            Log.d("DEBUG", "No permissions");
         }
         locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 500, 1, this);
 
@@ -69,9 +78,14 @@ public class CameraActivity extends AppCompatActivity implements LocationListene
 
         Button btn = (Button) findViewById(R.id.upload);
         Button save_btn = (Button)findViewById(R.id.save_for_later);
+        Button take_photo_btn = (Button) findViewById(R.id.take_photo);
 
         Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
         if (intent.resolveActivity(getPackageManager()) != null) {
+            File mImageFile = createImageFile(person_img_name);
+            //Using fileprovider since API 24+ needed.
+            mImageUri = FileProvider.getUriForFile(this, "com.example.android.fileprovider", mImageFile);
+            intent.putExtra(MediaStore.EXTRA_OUTPUT, mImageUri);
             startActivityForResult(intent, REQUEST_IMAGE_CAPTURE);
         }
         btn.setOnClickListener(new View.OnClickListener() {
@@ -79,6 +93,19 @@ public class CameraActivity extends AppCompatActivity implements LocationListene
             public void onClick(View v) {
                 File file = getImageFile(person_img_name);
                 singleUpload(getImageFile(person_img_name));
+            }
+        });
+
+        take_photo_btn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+                if (intent.resolveActivity(getPackageManager()) != null) {
+                    File mImageFile = createImageFile(person_img_name);
+                    mImageUri = FileProvider.getUriForFile(v.getContext(), "com.example.android.fileprovider", mImageFile);
+                    intent.putExtra(MediaStore.EXTRA_OUTPUT, mImageUri);
+                    startActivityForResult(intent, REQUEST_IMAGE_CAPTURE);
+                }
             }
         });
 
@@ -93,37 +120,58 @@ public class CameraActivity extends AppCompatActivity implements LocationListene
             String lngval = String.valueOf(lastKnownLocation.getLongitude());
             Person newPerson = new Person();
             newPerson.setId(id);
-            newPerson.setHeadstone(person_img_name);
+            File getHeadstoneFile = getImageFile(person_img_name);
+            String new_person_img_name = person_img_name + "_" + UUID.randomUUID().toString();
+            File newHeadstoneFile = createImageFile(new_person_img_name);
+            getHeadstoneFile.renameTo(newHeadstoneFile);
+            newPerson.setHeadstone(new_person_img_name);
             newPerson.setLat(latval);
             newPerson.setLng(lngval);
             JsonWrite.WriteToFile(v.getContext(), newPerson);
+            person_img_name = new_person_img_name;
         }
     };
 
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == REQUEST_IMAGE_CAPTURE && resultCode == RESULT_OK) {
-            Bundle extras = data.getExtras();
-            Bitmap image = (Bitmap) extras.get("data");
-            ImageView holder = (ImageView) findViewById(R.id.imageHolder);
-            holder.setImageBitmap(image);
-            File file = createImageFile(person_img_name);
-            ByteArrayOutputStream outputBytes = new ByteArrayOutputStream();
-            image.compress(Bitmap.CompressFormat.JPEG,100,outputBytes);
-            try {
-                FileOutputStream output = new FileOutputStream(file);
-                output.write(outputBytes.toByteArray());
-                output.close();
+            ImageView v = (ImageView)findViewById(R.id.imageHolder);
+            File imageFile = getImageFile(person_img_name);
+            Picasso.with(this).invalidate(imageFile);
+            Picasso.with(this).load(imageFile).resize(480,640).into(target);
+            Picasso.with(this).invalidate(imageFile);
+            Picasso.with(this).load(imageFile).into(v);
+        }
+        super.onActivityResult(requestCode, resultCode, data);
+    }
 
+    private Target target = new Target() {
+        @Override
+        public void onBitmapLoaded(Bitmap bitmap, Picasso.LoadedFrom from) {
+            File file = createImageFile(person_img_name);
+            try {
+                FileOutputStream os = new FileOutputStream(file);
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 100, os);
+                os.flush();
+                os.close();
             } catch (FileNotFoundException e) {
                 e.printStackTrace();
             } catch (IOException e) {
                 e.printStackTrace();
             }
         }
-    }
 
-    public void singleUpload(File imagepathFile){
+        @Override
+        public void onBitmapFailed(Drawable errorDrawable) {
+
+        }
+
+        @Override
+        public void onPrepareLoad(Drawable placeHolderDrawable) {
+
+        }
+    };
+
+    public void singleUpload(final File imagepathFile){
         CemeteryAPI cemeteryService = CemeteryService.getCemeteryService();
         String latval = String.valueOf(lastKnownLocation.getLatitude());
         String lngval = String.valueOf(lastKnownLocation.getLongitude());
@@ -141,6 +189,7 @@ public class CameraActivity extends AppCompatActivity implements LocationListene
             public void onResponse(Call<ResponseBody> call, Response<ResponseBody> response) {
                 dialog.hide();
                 Toast.makeText(getBaseContext(), "Uploaded!", Toast.LENGTH_SHORT).show();
+                imagepathFile.delete();
             }
 
             @Override

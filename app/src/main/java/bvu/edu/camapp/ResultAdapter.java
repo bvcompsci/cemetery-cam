@@ -2,19 +2,13 @@ package bvu.edu.camapp;
 
 import android.content.Context;
 import android.content.Intent;
-import android.graphics.Camera;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.widget.RecyclerView;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ImageView;
 import android.widget.TextView;
-import android.widget.Toast;
-
-import com.squareup.picasso.Picasso;
-
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -43,10 +37,14 @@ public class ResultAdapter extends RecyclerView.Adapter<ResultAdapter.ViewHolder
     @Override
     public void onBindViewHolder(ViewHolder holder, int position) {
         holder.person_name.setText(dataset.get(position).getFirstName() + " " + dataset.get(position).getLastName());
-        String img_loc = CemeteryService.API_IMAGES_URL + "/hs-" + dataset.get(position).getId() + ".jpg";
         holder.gps_lat.setText("GPS LAT: " + dataset.get(position).getLat());
         holder.gps_lng.setText("GPS LNG: " + dataset.get(position).getLng());
-        Picasso.with(holder.context).load(img_loc).into(holder.burial_img);
+        if(dataset.get(position).getLat().length() > 3){
+            holder.indicator.setBackgroundColor(ContextCompat.getColor(holder.context, R.color.colorAccent));
+        }
+        else{
+            holder.indicator.setBackgroundColor(ContextCompat.getColor(holder.context, android.R.color.holo_red_light));
+        }
     }
 
     @Override
@@ -56,13 +54,13 @@ public class ResultAdapter extends RecyclerView.Adapter<ResultAdapter.ViewHolder
 
     public class ViewHolder extends RecyclerView.ViewHolder implements View.OnClickListener{
         TextView person_name, gps_lat, gps_lng;
-        ImageView burial_img;
+        View indicator;
         Context context;
         public ViewHolder(View itemView) {
             super(itemView);
             person_name = (TextView) itemView.findViewById(R.id.person_name);
-            burial_img = (ImageView) itemView.findViewById(R.id.burial_img);
             gps_lat = (TextView) itemView.findViewById(R.id.gps_lat);
+            indicator = (View) itemView.findViewById(R.id.indicator);
             gps_lng = (TextView) itemView.findViewById(R.id.gps_lng);
 
             context = itemView.getContext();

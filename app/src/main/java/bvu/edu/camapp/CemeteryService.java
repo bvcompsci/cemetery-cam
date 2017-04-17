@@ -9,7 +9,6 @@ import retrofit2.converter.gson.GsonConverterFactory;
 
 public class CemeteryService {
     public static final String BASE_URL = "http://cemetery-map.herokuapp.com";
-    public static final String API_IMAGES_URL = CemeteryService.BASE_URL + "/static/images/headstone";
 
     public static CemeteryAPI getCemeteryService() {
         final Retrofit retrofit = new Retrofit.Builder()

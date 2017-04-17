@@ -85,7 +85,7 @@ public class Person {
     }
 
     public String getLng() {
-        return lng;
+        return lng.trim();
     }
 
     public void setLng(String lng) {
@@ -93,7 +93,7 @@ public class Person {
     }
 
     public String getLat() {
-        return lat;
+        return lat.trim();
     }
 
     public void setLat(String lat) {

@@ -49,7 +49,6 @@ public class JsonWrite {
             Toast.makeText(context, "File not found error", Toast.LENGTH_SHORT).show();
             e.printStackTrace();
         } catch (IOException e) {
-            Toast.makeText(context, "Error writing to file", Toast.LENGTH_SHORT).show();
             e.printStackTrace();
         }
     }

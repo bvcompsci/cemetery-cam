@@ -50,7 +50,6 @@ public class JsonRead {
             Toast.makeText(context, "Encoding error", Toast.LENGTH_SHORT).show();
             e.printStackTrace();
         } catch (IOException e) {
-            Toast.makeText(context, "Error reading file", Toast.LENGTH_SHORT).show();
             e.printStackTrace();
         }
         return people;
