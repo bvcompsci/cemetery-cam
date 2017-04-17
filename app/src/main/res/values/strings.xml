@@ -1,5 +1,5 @@
 <resources>
     <string name="app_name">Camapp</string>
-    <string name="title_activity_main">Search burial</string>
+    <string name="title_activity_main">Search burials</string>
     <string name="title_activity_camera">Upload burial</string>
 </resources>

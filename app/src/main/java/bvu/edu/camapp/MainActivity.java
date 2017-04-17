@@ -1,9 +1,12 @@
 package bvu.edu.camapp;
 
+import android.Manifest;
 import android.app.ProgressDialog;
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Environment;
+import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
@@ -50,6 +53,19 @@ public class MainActivity extends AppCompatActivity {
 
 
 
+        // Check permission and adding in permissions
+        String[] listOfPermissions = {Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION,
+                Manifest.permission.CAMERA,
+                Manifest.permission.READ_EXTERNAL_STORAGE,
+                Manifest.permission.WRITE_EXTERNAL_STORAGE};
+
+        String[] neededPermissions = checkAllPermissions(this, listOfPermissions);
+        if (neededPermissions.length > 0) {
+            Log.d("DEBUG", "" + neededPermissions.length);
+            ActivityCompat.requestPermissions(this, neededPermissions,0);
+        }
+        //Starting API service and fetching data
         CemeteryAPI cemeteryService = CemeteryService.getCemeteryService();
         Call<ArrayList<Person>> call = cemeteryService.getBurials();
         final ProgressDialog dialog = new ProgressDialog(this);
@@ -108,6 +124,16 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
+    private String[] checkAllPermissions(Context context, String[] permissions){
+        ArrayList<String> returnPermissions = new ArrayList<>();
+        for(String permission : permissions){
+            if(ActivityCompat.checkSelfPermission(context, permission) != PackageManager.PERMISSION_GRANTED){
+                returnPermissions.add(permission);
+            }
+        }
+        return returnPermissions.toArray(new String[0]);
+    }
+
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         MenuInflater inflater = getMenuInflater();
@@ -119,9 +145,6 @@ public class MainActivity extends AppCompatActivity {
     public boolean onOptionsItemSelected(MenuItem item) {
 
         switch(item.getItemId()){
-            case R.id.settings:
-                Toast.makeText(this, "Settings", Toast.LENGTH_SHORT).show();
-                return true;
             case R.id.bulk_upload:
                 if(checkUploadFile()){ // if upload file exists
                     multiUpload();
@@ -160,10 +183,14 @@ public class MainActivity extends AppCompatActivity {
         for(Person person: people){
             Log.d("DEBUG", person.getHeadstone());
             File file = new File(this.getExternalFilesDir(Environment.DIRECTORY_PICTURES), person.getHeadstone() + ".jpg");
-            singleUpload(file, person.getLat(), person.getLng(), String.valueOf(person.getId()));
+            if(file.exists())
+                singleUpload(file, person.getLat(), person.getLng(), String.valueOf(person.getId()));
+            else
+                Toast.makeText(this, person.getFirstName() + " " + person.getLastName() + ": no image file", Toast.LENGTH_SHORT).show();
         }
+        JsonRead.deleteFile(this);
     }
-    private void singleUpload(File imagepathFile, String latval, String lngval, final String person_id){
+    private void singleUpload(final File imagepathFile, String latval, String lngval, final String person_id){
         CemeteryAPI cemeteryService = CemeteryService.getCemeteryService();
         RequestBody lat = RequestBody.create(MediaType.parse("form-data"),latval);
         RequestBody lng = RequestBody.create(MediaType.parse("form-data"),lngval);
@@ -175,11 +202,13 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onResponse(Call<ResponseBody> call, Response<ResponseBody> response) {
                 Toast.makeText(getBaseContext(), String.format("Uploaded id: " + person_id), Toast.LENGTH_SHORT).show();
+                imagepathFile.delete();
             }
 
             @Override
             public void onFailure(Call<ResponseBody> call, Throwable t) {
                 Toast.makeText(getBaseContext(), String.format("Failed to upload id: " + person_id), Toast.LENGTH_SHORT).show();
+                imagepathFile.delete();
             }
         });
     }
